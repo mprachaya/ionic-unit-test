@@ -61,7 +61,8 @@ ionic-unit-test/
 │   ├── markdown-ionic-unit-test.md    # Full Thai guide (principles → verification)
 │   ├── commands-reference.md          # Reference for all Cursor commands
 │   ├── rules-reference.md            # Reference for all Cursor rules
-│   └── presentation-overview.md      # Mermaid diagrams for team presentation
+│   ├── presentation-overview.md      # Mermaid diagrams for team presentation
+│   └── setup-guide-for-other-repos.md # Setup guide for adding tests to existing projects
 ├── .cursor-blueprint.md               # Project blueprint for Cursor AI
 ├── vue3-jest-fix.js                   # Transform wrapper (fixes @vue/vue3-jest collision)
 ├── jest.setup.js                      # VTU global config + warning suppression
@@ -239,6 +240,7 @@ Add `@.cursor-blueprint.md` in any Cursor prompt so the AI follows the project's
 | **`docs/commands-reference.md`** | Reference for all Cursor `/commands` -- what each one does, when to use it |
 | **`docs/rules-reference.md`** | Reference for all Cursor rules -- what each rule enforces, which files trigger it |
 | **`docs/presentation-overview.md`** | Mermaid diagrams for team presentation -- architecture, testing flow, Do's & Don'ts |
+| **`docs/setup-guide-for-other-repos.md`** | Step-by-step guide for adding Jest + Cursor AI testing to an existing Ionic Vue project |
 
 ---
 
