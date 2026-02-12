@@ -8,11 +8,16 @@ module.exports = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleFileExtensions: ['js', 'jsx', 'json', 'vue'],
   transform: {
-    '^.+\\.vue$': '@vue/vue3-jest',
+    // Use custom wrapper that fixes @vue/vue3-jest variable collision
+    // (script and render function both generate `var _vue = require(...)`)
+    '^.+\\.vue$': '<rootDir>/vue3-jest-fix.js',
     '^.+\\.m?js$': 'babel-jest',
   },
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
+    // Point ALL @ionic/vue imports (including from compiled SFCs) to the manual mock.
+    // This avoids ESM parse errors and guarantees controllers are always available.
+    '^@ionic/vue$': '<rootDir>/__mocks__/@ionic/vue.js',
   },
   testMatch: [
     '**/tests/unit/**/*.spec.[jt]s?(x)',
