@@ -10,7 +10,7 @@
     "test:unit": "npx vue-cli-service test:unit",
     "test:jest": "npx jest",
     "test:coverage": "npx jest --coverage",
-    "test:coverage:open": "npx jest --coverage && open coverage/lcov-report/index.html",
+    "test:coverage:open": "npx jest --coverage; open coverage/lcov-report/index.html",
     "lint": "npx eslint src tests --ext .js,.vue"
   },
   "dependencies": {
