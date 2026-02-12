@@ -1,0 +1,19 @@
+---
+description: How-to guide for Ionic Vue Jest tests (setup, Ionic mocks, async, selectors)
+globs: "tests/unit/**/*.spec.{ts,js},**/*.test.{ts,js}"
+alwaysApply: false
+---
+
+# Ionic Vue Jest – How-to Guide
+
+## Setup
+- Use **shallowMount** by default to keep tests fast.
+
+## Ionic Spies
+- Always mock `@ionic/vue` controllers (Loading, Toast, Modal) using `jest.fn()`.
+
+## Async Handling
+- Use `await wrapper.vm.$nextTick()` or `flushPromises()` after triggering Ionic events.
+
+## Component Selection
+- Favor `findComponent(IonButton)` over CSS selectors for type safety.

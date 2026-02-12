@@ -1,0 +1,26 @@
+---
+description: Vuex 4 testing patterns for mutations, actions, and component store usage
+globs: "**/store/**/*.{ts,js},**/*store*.spec.{ts,js}"
+alwaysApply: false
+---
+
+# Vuex Testing
+
+## Mutations
+- Test as pure functions: pass state and payload, assert new state. No mocking.
+
+## Actions
+- Mock API (e.g. axios) and assert `commit` calls and arguments.
+- Test both success and failure paths (resolve/reject).
+
+## Components using Vuex
+- Use `createStore()` or a test helper to provide a mock store.
+- Dispatch actions and assert side effects or emitted events; avoid testing store internals from the component.
+
+## Example (action test)
+```ts
+jest.mock('axios');
+const commit = jest.fn();
+await actions.loginUser({ commit }, { email, password });
+expect(commit).toHaveBeenCalledWith('SET_USER', expect.any(Object));
+```

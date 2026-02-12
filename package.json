@@ -1,0 +1,47 @@
+{
+  "name": "ionic-unit-test",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Ionic Vue unit testing with Jest and Vue Test Utils (learning project)",
+  "scripts": {
+    "serve": "npx vue-cli-service serve",
+    "build": "npx vue-cli-service build",
+    "test": "npx vue-cli-service test:unit",
+    "test:unit": "npx vue-cli-service test:unit",
+    "test:jest": "npx jest",
+    "test:coverage": "npx jest --coverage",
+    "test:coverage:open": "npx jest --coverage && open coverage/lcov-report/index.html",
+    "lint": "npx eslint src tests --ext .js,.vue"
+  },
+  "dependencies": {
+    "@capacitor/camera": "^7.0.3",
+    "@capacitor/core": "^7.4.3",
+    "@capacitor/filesystem": "^7.1.6",
+    "@capacitor/geolocation": "^7.1.7",
+    "@capacitor/preferences": "^7.0.2",
+    "@ionic/core": "^8.7.11",
+    "@ionic/vue": "^8.7.11",
+    "@ionic/vue-router": "^8.7.11",
+    "axios": "^1.7.0",
+    "core-js": "^3.6.5",
+    "vue": "^3.5.25",
+    "vue-router": "^4.6.3",
+    "vuex": "^4.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.24.0",
+    "@babel/preset-env": "^7.24.0",
+    "@vue/cli-plugin-unit-jest": "^5.0.8",
+    "@vue/cli-service": "^5.0.8",
+    "@vue/compiler-sfc": "^3.5.13",
+    "@vue/test-utils": "^2.4.6",
+    "@vue/vue3-jest": "^27.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^8.7.0",
+    "jest": "^27.5.1",
+    "jest-environment-jsdom": "^27.5.1"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

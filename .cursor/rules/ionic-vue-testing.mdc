@@ -1,0 +1,25 @@
+---
+description: Ionic Vue unit testing standards with Jest and Vue Test Utils
+globs: "**/*.spec.{ts,js},**/*.test.{ts,js},**/tests/**/*.{ts,js}"
+alwaysApply: false
+---
+
+# Ionic Vue Unit Testing
+
+## Tools
+- **Vue Test Utils**: Mount components, simulate user interaction (click, input). Use `findComponent()` for Ionic components (Shadow DOM); plain `find()` may not reach inner elements.
+- **Jest**: `describe`/`it`, `expect`, and mocking. Mock Ionic controllers, Capacitor plugins, and API services.
+
+## Ionic-specific
+- **Shadow DOM**: Prefer `findComponent(IonInput)` etc. over querying internal elements.
+- **Lifecycles**: Test `ionViewWillEnter` / `ionViewDidEnter` by calling them on the wrapper: `await wrapper.vm.ionViewDidEnter()`.
+
+## Best practices
+- Test business logic: calculations, state changes, `v-if` conditions.
+- Write tests from user perspective (e.g. "when user submits valid form, welcome message appears").
+- Do not test framework behavior (v-model, ion-button rendering).
+- Aim ~80% coverage; prioritize branch coverage (if/else, switch).
+
+## Mocking
+- Mock `@ionic/vue` controllers (Modal, Loading, Toast) in `jest.setup.js` or per test.
+- Mock Capacitor plugins and API (e.g. axios) in tests; keep mocks close to the test file.

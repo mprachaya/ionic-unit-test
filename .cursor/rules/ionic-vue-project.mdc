@@ -1,0 +1,24 @@
+---
+description: Project-wide tech stack and testing targets for Ionic Vue
+alwaysApply: true
+---
+
+# Ionic Vue Unit Test Repository
+
+## Tech stack
+- **Framework:** Ionic Vue (Vue 3)
+- **Testing:** Jest + Vue Test Utils
+- **State:** Vuex 4 (modules)
+- **HTTP:** Axios
+
+## Testing standards
+1. **Mocking:** Mock `@ionic/vue` controllers (Modal, Toast, Loading) and Capacitor/API in tests.
+2. **Vuex:** Mutations as pure functions; actions with mocked `commit` and API; components use mock store.
+3. **Ionic lifecycle:** Test `ionViewDidEnter` / `ionViewWillLeave` via `wrapper.vm`.
+4. **Target:** ~80%+ coverage; focus on store and service logic.
+
+## Learning phases
+- **Phase 1 – Utils:** Pure functions (validators, formatters).
+- **Phase 2 – Vuex:** Mutations, actions, getters.
+- **Phase 3 – Services:** API and Capacitor plugins (mocked).
+- **Phase 4 – Components/Pages:** Rendering and dispatch; mock store and Ionic controllers.

@@ -1,0 +1,46 @@
+---
+description: Rule for analyzing and reporting why a test file's coverage is low (without modifying the component)
+globs: "tests/unit/**/*.spec.{js,ts}"
+alwaysApply: false
+---
+
+# Coverage Report – Recheck and Explain Low Coverage
+
+## Purpose
+When the user asks why coverage is low for a test file (or drags a test file and runs the coverage-report command), analyze and report reasons **without** changing the component under test or chasing coverage.
+
+## Steps
+
+1. **Identify the source file** that the test file targets (e.g. `LoginPage.spec.js` → `src/views/LoginPage.vue`).
+
+2. **Run coverage** for that target only, e.g.:
+   - `npx jest --coverage --collectCoverageFrom='src/views/LoginPage.vue' --testPathPattern='LoginPage'`
+   - Or run full coverage and note the file’s stats.
+
+3. **Report in a short, structured way:**
+   - **Current numbers:** Statements %, Branches %, Functions %, Lines % (and uncovered line numbers if useful).
+   - **Why it’s low:** Explain in 2–4 bullet points, for example:
+     - **Compiled output:** Coverage is on the compiled SFC (template + script → one JS file); line numbers in the report refer to that output, not the original .vue lines.
+     - **Template:** The template compiles to many branches/lines; only part runs on mount or on user actions that the tests trigger.
+     - **Untested paths:** Which logic is not hit (e.g. loading controller, error branch, optional chaining branch) and why (e.g. mocks don’t provide it, or we don’t modify the component to expose it).
+     - **Test constraints:** Per project rules we don’t add `defineExpose` or test-only helpers to the component, so some paths may stay untested by design.
+
+4. **Do not:**
+   - Modify the component to increase coverage.
+   - Suggest adding `defineExpose` or test-only helpers unless the user explicitly asks.
+   - Over-engineer tests solely to raise the percentage.
+
+## Output format (suggested)
+
+```markdown
+## Coverage report: [SourceFile.vue]
+
+**Current:** X% statements, Y% branches, Z% lines (uncovered: …).
+
+**Why it’s low:**
+- [Reason 1]
+- [Reason 2]
+- [Reason 3]
+
+**Optional:** To see line-by-line highlighting, run `npm run test:coverage:open` and open the file in the HTML report.
+```
