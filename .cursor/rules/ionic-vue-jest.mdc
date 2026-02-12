@@ -1,5 +1,5 @@
 ---
-description: How-to guide for Ionic Vue Jest tests (setup, Ionic mocks, async, selectors)
+description: How-to guide for Ionic Vue Jest tests (setup, mocks, async, selectors)
 globs: "tests/unit/**/*.spec.{ts,js},**/*.test.{ts,js}"
 alwaysApply: false
 ---
@@ -7,13 +7,29 @@ alwaysApply: false
 # Ionic Vue Jest – How-to Guide
 
 ## Setup
-- Use **shallowMount** by default to keep tests fast.
+- Use **`mount`** for view/page components — stubs in `__mocks__/@ionic/vue.js` render real HTML tags.
+- Use **`shallowMount`** for non-view components when isolation is needed.
 
-## Ionic Spies
-- Always mock `@ionic/vue` controllers (Loading, Toast, Modal) using `jest.fn()`.
+## Ionic Mock Architecture
+- **`__mocks__/@ionic/vue.js`** — manual mock with component stubs + controller mocks (`jest.fn()`). Loaded via `moduleNameMapper` in `jest.config.js`. No `jest.mock()` needed.
+- **`vue3-jest-fix.js`** — custom transform wrapper. Fixes `@vue/vue3-jest` variable collision where `<template>` compile overwrites `<script>` module ref. Renames `_vue → _vue2` in the render section.
+- Import controllers **normally** from `@ionic/vue` in both components and tests.
 
 ## Async Handling
-- Use `await wrapper.vm.$nextTick()` or `flushPromises()` after triggering Ionic events.
+- Use `await flushPromises()` after triggering async operations (store dispatch, controller create).
+- Use `await wrapper.vm.$nextTick()` after `setData()` for reactivity.
 
-## Component Selection
-- Favor `findComponent(IonButton)` over CSS selectors for type safety.
+## Element Selection (no data-testid)
+- `find('ion-input')`, `find('ion-text[color="danger"]')` etc.
+- `findAll('ion-input')` for multiple same-type
+- `find('ion-button').attributes('disabled')` for attribute checks
+- `wrapper.text()` with `toContain(...)` for text content
+
+## Test Reset Pattern
+```js
+beforeEach(() => {
+  jest.clearAllMocks();
+  loadingController.create.mockResolvedValue({ present: jest.fn(), dismiss: jest.fn() });
+  toastController.create.mockResolvedValue({ present: jest.fn(), dismiss: jest.fn() });
+});
+```

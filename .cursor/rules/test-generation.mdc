@@ -7,14 +7,27 @@ alwaysApply: false
 # Test Generation – Creator Rule
 
 ## Pattern
-- Create a **factory function** in every test to generate a wrapper with configurable props.
+- Create a **factory function** in every test to generate a wrapper with configurable props/store.
+
+## Mount Strategy
+- Use **`mount`** (not `shallowMount`) for view/page components — the mock stubs render real HTML tags.
+
+## Imports
+- Import Ionic controllers **normally** from `@ionic/vue` in both components and tests.
+- The `__mocks__/@ionic/vue.js` + `vue3-jest-fix.js` handle everything automatically.
 
 ## Requirement
 - Every new test must include at least one **Happy Path** (success) and one **Edge Case** (error/empty state).
 
+## Element Selection (no data-testid)
+- Do NOT add `data-testid` or test-only `id` attributes to components.
+- Use tag selectors: `find('ion-input')`, `find('ion-text[color="danger"]')`.
+- Use `findAll('ion-input')` for multiple elements, `wrapper.text()` for content.
+
 ## Constraints (important)
-- **Do not modify the component under test.** Write tests against the component as it is. Do not add `defineExpose`, test-only helpers, or change the component (e.g. to Options API) just to make tests easier.
-- **Do not chase coverage.** Test the public behavior (props, events, store dispatch, user-visible outcomes). Do not add code to the source file or over-engineer tests solely to increase coverage.
+- **Do not modify the component under test.** Write tests against the component as it is.
+- **Do not chase coverage.** Test public behavior (props, events, store dispatch, user-visible outcomes).
 
 ## Boilerplate
-- Automatically include necessary imports for **IonicVue** and **IonPage** if the file is a view.
+- Include necessary imports for Ionic components if the file is a view.
+- Include `beforeEach` with `jest.clearAllMocks()` and controller mock resets.
