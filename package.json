@@ -6,7 +6,7 @@
   "scripts": {
     "serve": "npx vue-cli-service serve",
     "build": "npx vue-cli-service build",
-    "test": "npx vue-cli-service test:unit",
+    "test": "npx jest --verbose --coverage; open coverage/lcov-report/index.html",
     "test:unit": "npx vue-cli-service test:unit",
     "test:jest": "npx jest",
     "test:coverage": "npx jest --coverage",
