@@ -67,51 +67,103 @@
 - **Phase 4: Components & Pages** - การแสดงผลและการ Dispatch Action
 ```
 
-### ไฟล์ที่ 2: `jest.setup.js`
+### Mock Architecture — ไฟล์สำคัญที่แก้ปัญหา `@vue/vue3-jest` (ต้องมี!)
 
-ไฟล์นี้ใช้สำหรับตั้งค่าสภาพแวดล้อมการทดสอบของ Jest ก่อนที่เทสจะเริ่มรัน เราจะใช้ไฟล์นี้เพื่อ Mock Controllers มาตรฐานของ Ionic (เช่น Modal, Loading, Toast) ทั่วทั้งโปรเจกต์ เพื่อป้องกันข้อผิดพลาดและทำให้การทดสอบ Component ที่เรียกใช้ Controller เหล่านี้ง่ายขึ้น
+โปรเจกต์นี้ใช้ระบบ Mock แบบพิเศษ **2 ไฟล์หลัก** ที่ทำงานร่วมกัน เพื่อให้ component ใช้ `import { loadingController } from '@ionic/vue'` ได้ตามปกติโดยไม่ต้องแก้โค้ดใดๆ
+
+#### ทำไมถึงจำเป็น? — ปัญหาของ `@vue/vue3-jest`
+
+`@vue/vue3-jest` คอมไพล์ทั้ง `<script>` และ `<template>` แล้วใส่ไว้ใน scope เดียวกัน ทั้งสองส่วนสร้างตัวแปร `var _vue = require(...)` ซ้ำกัน:
+
+```js
+// จาก <script> → ถูกต้อง
+var _vue = require("@ionic/vue");   // มี loadingController
+
+// จาก <template> → เขียนทับ!
+var _vue = require("vue");          // ไม่มี loadingController → undefined!
+```
+
+ผลลัพธ์: ตัวแปรจาก template (`require("vue")`) เขียนทับตัวแปรจาก script (`require("@ionic/vue")`) ทำให้ controller ทุกตัวกลายเป็น `undefined` ตอนเรียกใช้ใน methods
+
+#### ไฟล์ที่ 2a: `vue3-jest-fix.js` (Custom Transform Wrapper)
+
+**หน้าที่:** ครอบ `@vue/vue3-jest` แล้ว post-process ผลลัพธ์ — หาจุดแบ่งระหว่าง script กับ render function (ตรง `"use strict";` ตัวที่ 2) แล้วเปลี่ยนชื่อ `_vue` → `_vue2` เฉพาะในส่วน render function เพื่อไม่ให้ชนกัน
+
+```javascript
+// vue3-jest-fix.js — ไม่ต้องแก้ไข ใช้งานได้เลย
+const vue3Jest = require('@vue/vue3-jest');
+
+module.exports = {
+  process(src, filename, options) {
+    const result = vue3Jest.process(src, filename, options);
+    let code = typeof result === 'string' ? result : result.code;
+    if (!filename.endsWith('.vue')) return result;
+
+    const marker = '"use strict";';
+    const firstIdx = code.indexOf(marker);
+    if (firstIdx === -1) return result;
+    const secondIdx = code.indexOf(marker, firstIdx + marker.length);
+    if (secondIdx === -1) return result;
+
+    // เปลี่ยนชื่อ _vue → _vue2 เฉพาะส่วน render function
+    const scriptSection = code.slice(0, secondIdx);
+    const renderSection = code.slice(secondIdx).replace(/\b_vue\b/g, '_vue2');
+    code = scriptSection + renderSection;
+
+    if (typeof result === 'string') return code;
+    return { ...result, code };
+  },
+};
+```
+
+**ถ้าไม่มีไฟล์นี้:** Controller ทุกตัว (`loadingController`, `toastController`, etc.) จะเป็น `undefined` ในทุก `.vue` file — เทสที่เรียก controller จะพังทั้งหมด
+
+#### ไฟล์ที่ 2b: `__mocks__/@ionic/vue.js` (Manual Mock)
+
+**หน้าที่:** เป็น mock กลางสำหรับ `@ionic/vue` ทั้งหมด โหลดอัตโนมัติผ่าน `moduleNameMapper` ใน `jest.config.js`
+
+-   **Component stubs** — render เป็น HTML tag จริง (`<ion-input>`, `<ion-button>` ฯลฯ) ทำให้ `find('ion-input')` ใช้งานได้ในเทส
+-   **Controller mocks** — `loadingController`, `toastController`, `modalController`, `alertController` เป็น `jest.fn()` assert ได้ทุก call
+-   **Proxy fallback** — component `Ion*` ตัวไหนที่ไม่ได้ list ไว้จะถูกสร้าง stub อัตโนมัติ (เช่น `IonCard`, `IonGrid` ฯลฯ ใช้ได้เลยไม่ต้องเพิ่มเอง)
+
+**ถ้าไม่มีไฟล์นี้:** Jest จะพยายาม parse `@ionic/vue` แบบ ESM แล้วพัง (`SyntaxError: Cannot use import statement outside a module`) หรือถ้าผ่านก็จะได้ controller จริงที่ไม่มี DOM — เทส assert ไม่ได้
+
+#### ไฟล์ที่ 2c: `jest.setup.js` (Global Config)
+
+ไฟล์นี้ตั้งค่า Vue Test Utils global plugin และ suppress warning เท่านั้น — **ไม่มี `jest.mock()` ใดๆ** เพราะ mock ทั้งหมดจัดการผ่าน `__mocks__/@ionic/vue.js` แล้ว:
 
 ```javascript
 import { config } from '@vue/test-utils';
-import { IonicVue } from '@ionic/vue';
 
-// ลงทะเบียน IonicVue เป็น Global Plugin
-// เพื่อให้ Component ของ Ionic ถูกเรนเดอร์อย่างถูกต้องในการทดสอบ
-config.global.plugins = [IonicVue];
+// Stub plugin สำหรับ Ionic (no-op install)
+const IonicVueStub = { install: () => {} };
+config.global.plugins = [IonicVueStub];
 
-// Mock Ionic Controllers มาตรฐาน
-jest.mock('@ionic/vue', () => ({
-  ...jest.requireActual('@ionic/vue'), // นำเข้าทุกอย่างจาก @ionic/vue ตามปกติ
-  // แล้วเขียนทับเฉพาะส่วนที่เราต้องการ Mock
-  modalController: {
-    create: jest.fn().mockResolvedValue({
-      present: jest.fn(),
-      onDidDismiss: jest.fn().mockResolvedValue({ data: null })
-    })
-  },
-  loadingController: {
-    create: jest.fn().mockResolvedValue({
-      present: jest.fn(),
-      dismiss: jest.fn()
-    })
-  },
-  toastController: {
-    create: jest.fn().mockResolvedValue({
-      present: jest.fn()
-    })
-  }
-}));
+// Suppress "Invalid vnode type: undefined" จาก Ionic-mocked views
+const originalWarn = console.warn;
+console.warn = function (msg, ...args) {
+  if (typeof msg === 'string' && msg.includes('Invalid vnode type')) return;
+  originalWarn.apply(console, [msg, ...args]);
+};
 ```
 
-> **คำแนะนำ:** ตรวจสอบว่าโปรเจกต์ของคุณมีไฟล์ `jest.config.js` หากยังไม่มี ให้สร้างขึ้นโดยใช้ค่าตั้งต้นจาก Official Jest Configuration และที่สำคัญคือต้องตรวจสอบว่ามีการเรียกใช้ไฟล์ `jest.setup.js` ผ่าน Property ที่ชื่อ `setupFilesAfterEnv` ดังนี้:
-> 
-> ```javascript
-> // jest.config.js
-> module.exports = {
->   // ... other configs
->   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-> };
-> ```
+#### การเชื่อมต่อทั้งหมดใน `jest.config.js`
+
+```javascript
+module.exports = {
+  // ...
+  moduleNameMapper: {
+    '^@ionic/vue$': '<rootDir>/__mocks__/@ionic/vue.js',  // ชี้ไป manual mock
+  },
+  transform: {
+    '^.+\\.vue$': '<rootDir>/vue3-jest-fix.js',  // ใช้ wrapper แทน @vue/vue3-jest ตรงๆ
+    '^.+\\.m?js$': 'babel-jest',
+  },
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
+};
+```
+
+> **Warning:** ห้ามลบ `vue3-jest-fix.js` และ `__mocks__/@ionic/vue.js` — ทั้งสองไฟล์ทำงานคู่กัน ถ้าขาดตัวใดตัวหนึ่ง unit test ที่เรียก Ionic controller จะพังทันที
 
 ---
 

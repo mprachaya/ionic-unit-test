@@ -45,11 +45,13 @@
 | **Purpose** | มาตรฐานการเขียน Unit Test สำหรับ Ionic Vue |
 
 **สิ่งที่ Rule กำหนด:**
-- **Tools:** ใช้ Vue Test Utils (mount, findComponent) + Jest (describe, it, expect, mock)
-- **Shadow DOM:** ใช้ `findComponent(IonInput)` แทน `find()` สำหรับ Ionic components
+- **Mount strategy:** ใช้ `mount` สำหรับ view/page components, `shallowMount` สำหรับ non-view components
+- **Mock architecture:** ใช้ `__mocks__/@ionic/vue.js` ผ่าน `moduleNameMapper` + `vue3-jest-fix.js` transform wrapper — ไม่ต้อง `jest.mock()` หรือ workaround ใดๆ
+- **Imports:** import controllers ปกติจาก `@ionic/vue` ได้เลย ทั้งใน `.vue` และ `.spec.js`
+- **Element selection:** ใช้ tag selectors (`find('ion-input')`) ไม่ใช้ `data-testid`
+- **Shadow DOM:** ใช้ `find('ion-input')` หรือ `findComponent(IonInput)` แทน internal element queries
 - **Lifecycle:** เรียก `await wrapper.vm.ionViewDidEnter()` เพื่อเทส lifecycle
 - **Best Practices:** เทส business logic, เขียนจากมุมมองผู้ใช้, อย่าเทส framework, เน้น branch coverage
-- **Mocking:** mock controllers ใน `jest.setup.js` หรือ per test, mock Capacitor + axios
 
 ---
 
@@ -61,10 +63,12 @@
 | **Purpose** | Quick reference สำหรับเทคนิค Jest ใน Ionic Vue |
 
 **สิ่งที่ Rule กำหนด:**
-- ใช้ `shallowMount` เป็น default เพื่อให้เทสเร็ว
-- ต้อง mock Ionic controllers (Loading, Toast, Modal) ด้วย `jest.fn()`
-- ใช้ `await wrapper.vm.$nextTick()` หรือ `flushPromises()` หลัง trigger Ionic events
-- ใช้ `findComponent(IonButton)` แทน CSS selectors เพื่อ type safety
+- **Mock Architecture:** `__mocks__/@ionic/vue.js` (component stubs + controller mocks) + `vue3-jest-fix.js` (fixes variable collision) + `moduleNameMapper`
+- **Imports:** import controllers ปกติจาก `@ionic/vue` — ไม่ต้องใช้ helper files
+- **Mount:** ใช้ `mount` สำหรับ views, `shallowMount` สำหรับ non-views
+- **Async:** ใช้ `flushPromises()` หลัง async operations, `$nextTick()` หลัง `setData()`
+- **Element selection:** `find('ion-input')`, `find('ion-text[color="danger"]')`, `wrapper.text()`
+- **Mock reset pattern:** `jest.clearAllMocks()` + `loadingController.create.mockResolvedValue(...)` ใน `beforeEach`
 
 ---
 
@@ -91,10 +95,12 @@
 | **Purpose** | กฎสำหรับสร้างเทสใหม่จากศูนย์ |
 
 **สิ่งที่ Rule กำหนด:**
-- สร้าง **factory function** ในทุก test file เพื่อสร้าง wrapper พร้อม configurable props
-- ทุกเทสต้องมีอย่างน้อย 1 **Happy Path** + 1 **Edge Case**
-- เพิ่ม comment ใน `it()` เช่น `// Happy Path: ...` หรือ `// Edge Case: ...`
-- import IonicVue + IonPage สำหรับ views
+- สร้าง **factory function** ในทุก test file เพื่อสร้าง wrapper พร้อม configurable props/store
+- ใช้ **`mount`** สำหรับ views (ไม่ใช่ `shallowMount`)
+- ทุกเทสต้องมีอย่างน้อย 1 **Happy Path** + 1 **Edge Case** พร้อม comments
+- **Imports:** import controllers ปกติจาก `@ionic/vue`
+- **Element selection:** ห้ามใช้ `data-testid` — ใช้ tag/attribute selectors
+- **Mock reset:** ใส่ `beforeEach` กับ `jest.clearAllMocks()` + controller mock reset
 
 **ข้อห้ามสำคัญ:**
 - **ห้ามแก้ไข component ต้นทาง** -- ไม่เพิ่ม `defineExpose` หรือ test-only helpers
@@ -110,9 +116,9 @@
 | **Purpose** | กฎสำหรับ debug และแก้ไขเทสที่พัง |
 
 **สิ่งที่ Rule กำหนด:**
-- **Fix Strategy:** เช็ก missing Ionic dependency ใน `global.plugins` ก่อน (เช่น ลืมเพิ่ม IonicVue)
-- **Coverage:** ถ้า coverage < 80% ให้หา missing branches (เช่น `if/else` ใน `ionChange` handlers)
-- **Clean-up:** ต้องมี `jest.clearAllMocks()` ใน `afterEach` เพื่อป้องกัน test leakage
+- **Fix Strategy:** เช็ก `jest.config.js` ใช้ `vue3-jest-fix.js` transform, เช็ก `__mocks__/@ionic/vue.js` มี controllers ครบ, เช็ก missing Ionic dependency ใน `global.plugins`
+- **Coverage:** ถ้า coverage < 80% ให้หา missing branches (เช่น `if/else` ใน handlers)
+- **Clean-up:** ต้องมี `jest.clearAllMocks()` ใน `beforeEach` พร้อม controller mock reset
 
 ---
 
