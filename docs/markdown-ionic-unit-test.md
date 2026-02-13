@@ -67,106 +67,6 @@
 - **Phase 4: Components & Pages** - การแสดงผลและการ Dispatch Action
 ```
 
-### Mock Architecture — ไฟล์สำคัญที่แก้ปัญหา `@vue/vue3-jest` (ต้องมี!)
-
-โปรเจกต์นี้ใช้ระบบ Mock แบบพิเศษ **2 ไฟล์หลัก** ที่ทำงานร่วมกัน เพื่อให้ component ใช้ `import { loadingController } from '@ionic/vue'` ได้ตามปกติโดยไม่ต้องแก้โค้ดใดๆ
-
-#### ทำไมถึงจำเป็น? — ปัญหาของ `@vue/vue3-jest`
-
-`@vue/vue3-jest` คอมไพล์ทั้ง `<script>` และ `<template>` แล้วใส่ไว้ใน scope เดียวกัน ทั้งสองส่วนสร้างตัวแปร `var _vue = require(...)` ซ้ำกัน:
-
-```js
-// จาก <script> → ถูกต้อง
-var _vue = require("@ionic/vue");   // มี loadingController
-
-// จาก <template> → เขียนทับ!
-var _vue = require("vue");          // ไม่มี loadingController → undefined!
-```
-
-ผลลัพธ์: ตัวแปรจาก template (`require("vue")`) เขียนทับตัวแปรจาก script (`require("@ionic/vue")`) ทำให้ controller ทุกตัวกลายเป็น `undefined` ตอนเรียกใช้ใน methods
-
-#### ไฟล์ที่ 2a: `vue3-jest-fix.js` (Custom Transform Wrapper)
-
-**หน้าที่:** ครอบ `@vue/vue3-jest` แล้ว post-process ผลลัพธ์ — หาจุดแบ่งระหว่าง script กับ render function (ตรง `"use strict";` ตัวที่ 2) แล้วเปลี่ยนชื่อ `_vue` → `_vue2` เฉพาะในส่วน render function เพื่อไม่ให้ชนกัน
-
-```javascript
-// vue3-jest-fix.js — ไม่ต้องแก้ไข ใช้งานได้เลย
-const vue3Jest = require('@vue/vue3-jest');
-
-module.exports = {
-  process(src, filename, options) {
-    const result = vue3Jest.process(src, filename, options);
-    let code = typeof result === 'string' ? result : result.code;
-    if (!filename.endsWith('.vue')) return result;
-
-    const marker = '"use strict";';
-    const firstIdx = code.indexOf(marker);
-    if (firstIdx === -1) return result;
-    const secondIdx = code.indexOf(marker, firstIdx + marker.length);
-    if (secondIdx === -1) return result;
-
-    // เปลี่ยนชื่อ _vue → _vue2 เฉพาะส่วน render function
-    const scriptSection = code.slice(0, secondIdx);
-    const renderSection = code.slice(secondIdx).replace(/\b_vue\b/g, '_vue2');
-    code = scriptSection + renderSection;
-
-    if (typeof result === 'string') return code;
-    return { ...result, code };
-  },
-};
-```
-
-**ถ้าไม่มีไฟล์นี้:** Controller ทุกตัว (`loadingController`, `toastController`, etc.) จะเป็น `undefined` ในทุก `.vue` file — เทสที่เรียก controller จะพังทั้งหมด
-
-#### ไฟล์ที่ 2b: `__mocks__/@ionic/vue.js` (Manual Mock)
-
-**หน้าที่:** เป็น mock กลางสำหรับ `@ionic/vue` ทั้งหมด โหลดอัตโนมัติผ่าน `moduleNameMapper` ใน `jest.config.js`
-
--   **Component stubs** — render เป็น HTML tag จริง (`<ion-input>`, `<ion-button>` ฯลฯ) ทำให้ `find('ion-input')` ใช้งานได้ในเทส
--   **Controller mocks** — `loadingController`, `toastController`, `modalController`, `alertController` เป็น `jest.fn()` assert ได้ทุก call
--   **Proxy fallback** — component `Ion*` ตัวไหนที่ไม่ได้ list ไว้จะถูกสร้าง stub อัตโนมัติ (เช่น `IonCard`, `IonGrid` ฯลฯ ใช้ได้เลยไม่ต้องเพิ่มเอง)
-
-**ถ้าไม่มีไฟล์นี้:** Jest จะพยายาม parse `@ionic/vue` แบบ ESM แล้วพัง (`SyntaxError: Cannot use import statement outside a module`) หรือถ้าผ่านก็จะได้ controller จริงที่ไม่มี DOM — เทส assert ไม่ได้
-
-#### ไฟล์ที่ 2c: `jest.setup.js` (Global Config)
-
-ไฟล์นี้ตั้งค่า Vue Test Utils global plugin และ suppress warning เท่านั้น — **ไม่มี `jest.mock()` ใดๆ** เพราะ mock ทั้งหมดจัดการผ่าน `__mocks__/@ionic/vue.js` แล้ว:
-
-```javascript
-import { config } from '@vue/test-utils';
-
-// Stub plugin สำหรับ Ionic (no-op install)
-const IonicVueStub = { install: () => {} };
-config.global.plugins = [IonicVueStub];
-
-// Suppress "Invalid vnode type: undefined" จาก Ionic-mocked views
-const originalWarn = console.warn;
-console.warn = function (msg, ...args) {
-  if (typeof msg === 'string' && msg.includes('Invalid vnode type')) return;
-  originalWarn.apply(console, [msg, ...args]);
-};
-```
-
-#### การเชื่อมต่อทั้งหมดใน `jest.config.js`
-
-```javascript
-module.exports = {
-  // ...
-  moduleNameMapper: {
-    '^@ionic/vue$': '<rootDir>/__mocks__/@ionic/vue.js',  // ชี้ไป manual mock
-  },
-  transform: {
-    '^.+\\.vue$': '<rootDir>/vue3-jest-fix.js',  // ใช้ wrapper แทน @vue/vue3-jest ตรงๆ
-    '^.+\\.m?js$': 'babel-jest',
-  },
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
-};
-```
-
-> **Warning:** ห้ามลบ `vue3-jest-fix.js` และ `__mocks__/@ionic/vue.js` — ทั้งสองไฟล์ทำงานคู่กัน ถ้าขาดตัวใดตัวหนึ่ง unit test ที่เรียก Ionic controller จะพังทันที
-
----
-
 ## 3. กลยุทธ์การนับ Coverage และการวัดคุณภาพ
 
 เลิกวัดผลที่จำนวนบรรทัดของ HTML แต่ให้วัดที่ **"ความถูกต้องของ Logic"**
@@ -174,7 +74,7 @@ module.exports = {
 ### เป้าหมาย Coverage ตามประเภท
 
 -   **Logic/Calculations (The Core):** ต้อง **100%** เพราะเป็นส่วนที่ตัดสินว่าแอปจะทำงานผิดหรือถูก
--   **UI Coverage Strategy:** ไม่ต้องตั้งเป้าว่าต้องได้กี่ % สำหรับ UI แต่ให้ใช้วิธี **"Exclude/Skip"** ในการตั้งค่า Coverage Report (เช่นใน `jest.config.js`) เพื่อข้ามการนับคะแนนในส่วนของ `<template>` หรือ Style และไปโฟกัสเฉพาะส่วนที่เป็น `<script>` เท่านั้น วิธีนี้จะทำให้ค่า Coverage ที่เห็นสะท้อนคุณภาพของ Logic จริงๆ ไม่ใช่ตัวเลขหลอกจากการ Render หน้าจอ
+-   **UI Coverage Strategy:** Jest ไม่สามารถแยก Coverage ของ `<template>` ออกจาก `<script>` ได้ เพราะ `@vue/vue3-jest` คอมไพล์ SFC ทั้งไฟล์รวมเป็น JS เดียว (เฉพาะ `<style>` เท่านั้นที่ถูกตัดออกโดย compiler) วิธีแก้คือใช้ **`coverageThreshold` แบบ Per-directory** ใน `jest.config.js` — ตั้งค่า `src/views/` ให้มี threshold ต่ำกว่า (เช่น 50% lines, 70% functions) เพื่อรองรับบรรทัดจาก render function ที่ถูกสร้างจาก template ส่วน `src/utils/` และ `src/store/` ที่เป็น Pure Logic ให้ตั้ง 90–100% ได้เต็มที่
 
 ### Quality Expect (เขียนให้แม่น)
 
@@ -194,69 +94,77 @@ Cursor (AI Code Editor) สามารถช่วยลดขั้นตอ�
 
 ### วิธีตั้งค่า Cursor ให้เก่ง Unit Test
 
-#### Rules for AI
-
-ไปที่ Settings > General > Rules for AI และใส่คำสั่งนี้:
-
-> *"When writing unit tests for Ionic Vue, always use Vue Test Utils and Jest. Mock all Ionic controllers (loading, modal, toast) and Capacitor plugins by default. Use findComponent for Ionic elements. Prioritize testing the composition API logic and ensure async/await is used for lifecycle hooks."*
-
 #### Indexing
 
-ปล่อยให้ Cursor Index โปรเจกต์ให้เสร็จ เพื่อให้มันเห็น `tsconfig.json` และไฟล์ `@/` ต่างๆ
+ปล่อยให้ Cursor Index โปรเจกต์ให้เสร็จ เพื่อให้มันเห็น `jest.config.js`, `tsconfig.json` และไฟล์ `@/` ต่างๆ
 
-### การตั้งค่า `.cursorrules`
+#### Cursor Rules (`.cursor/rules/`)
 
-ไปที่หน้าต่าง Settings ของ Cursor หรือสร้างไฟล์ `.cursorrules` ใน Root Project แล้ววางข้อความนี้ลงไป:
+โปรเจกต์นี้ใช้ระบบ **Rule Files** แบบแยกตามหัวข้อ ไม่ได้ใช้ไฟล์ `.cursorrules` ตัวเดียวแบบเก่า แต่ละไฟล์เป็น `.mdc` ที่มี frontmatter กำหนด `description`, `globs` (ไฟล์ที่จะใช้ Rule นี้), และ `alwaysApply` (ใช้ทุกครั้งหรือไม่):
 
-```
-You are an expert in Ionic Vue and Jest Unit Testing.
-When writing tests:
-1. Always use @vue/test-utils and Jest.
-2. For Ionic components, use findComponent(Ion[Name]) instead of find('ion-[name]').
-3. Automatically mock @ionic/vue controllers (Modal, Loading, Toast, Alert).
-4. Automatically mock Capacitor plugins and API services.
-5. For <script setup>, use defineExpose where necessary to access internal methods for coverage.
-6. Use 'flushPromises' from @vue/test-utils for any async operations.
-7. Wrap components in global.plugins: [IonicVue] during mount.
-```
+| ไฟล์ Rule | ใช้งานเมื่อไหร่ | หน้าที่ |
+| --- | --- | --- |
+| `ionic-vue-project.mdc` | **Always** (ทุก Prompt) | กำหนด Tech Stack, Testing Standards, และ Learning Phases ของโปรเจกต์ |
+| `ionic-vue-testing.mdc` | ไฟล์ `*.spec.{ts,js}`, `*.test.{ts,js}` | มาตรฐานการเทส: Mount Strategy, Mock Architecture, Element Selection, Best Practices |
+| `ionic-vue-jest.mdc` | ไฟล์ `tests/unit/**/*.spec.*` | How-to Guide: วิธี Setup, Async Handling, Mock Reset Pattern |
+| `test-generation.mdc` | ไฟล์ `src/components/**/*.vue`, `src/views/**/*.vue` | Creator Rule: Factory Function, Happy Path + Edge Case, ห้ามแก้ Component |
+| `vuex-testing.mdc` | ไฟล์ `**/store/**/*`, `**/*store*.spec.*` | Pattern สำหรับเทส Mutations, Actions, Components ที่ใช้ Vuex |
+| `test-fixer.mdc` | ไฟล์ `*.spec.{ts,js}` | Debug Rule: แก้เทสพัง, เช็ก Coverage ต่ำ, Clean up mocks |
+| `coverage-report.mdc` | ไฟล์ `tests/unit/**/*.spec.*` | วิเคราะห์และรายงานสาเหตุที่ Coverage ต่ำ โดยไม่แก้ Component |
+
+> **หมายเหตุ:** ไม่ต้องตั้งค่าอะไรเพิ่มใน Settings > General > Rules for AI — Cursor จะอ่าน Rule Files จากโฟลเดอร์ `.cursor/rules/` โดยอัตโนมัติตาม `globs` ที่กำหนด
+
+#### Cursor Skill (`.cursor/skills/`)
+
+โปรเจกต์มี **Skill File** ที่ `.cursor/skills/ionic-vue-unit-test/SKILL.md` ซึ่ง Cursor Agent จะเรียกใช้อัตโนมัติเมื่อผู้ใช้ถามเกี่ยวกับ Ionic Vue Testing เช่น การ Mock Controller, การเขียนเทส Vuex Store หรือ Services — Skill นี้จะให้ Quick Reference และ Project Context ที่ถูกต้องแก่ Agent
+
+#### Cursor Commands (`.cursor/commands/`)
+
+โปรเจกต์มี **Command Files** สำเร็จรูปที่เรียกใช้ได้ทันทีจาก Chat โดยพิมพ์ `/` ตามด้วยชื่อ Command แบ่งเป็น 2 กลุ่ม:
+
+**Phase Commands** (สร้างไฟล์ตาม Learning Phase):
+
+| Command | หน้าที่ |
+| --- | --- |
+| `/phase-1-utils` | สร้าง `validators.js` + test file (Pure Logic) |
+| `/phase-2-store` | สร้าง Vuex 4 auth module + test file (Mock Axios) |
+| `/phase-3-services` | สร้าง CameraService, GeolocationService, FilesystemService + test files (Mock Capacitor) |
+| `/phase-4-login-page` | สร้าง LoginPage.vue + test file พร้อม spec ครบทุก describe block |
+| `/clean-phases` | ลบไฟล์ทั้งหมดที่สร้างจาก Phase 1–4 เพื่อเริ่มฝึกใหม่ |
+
+**Utility Commands** (ใช้งานระหว่างเขียนเทส):
+
+| Command | หน้าที่ |
+| --- | --- |
+| `/test-generation` | สร้างเทสใหม่: Factory, Mount, Mock Reset, Happy Path + Edge Case |
+| `/ionic-vue-jest` | คู่มือ Mock Architecture, Element Selection, Async Handling |
+| `/test-fixer` | แก้เทสพัง + เช็ก Coverage ต่ำกว่า 80% |
+| `/coverage-report` | วิเคราะห์สาเหตุ Coverage ต่ำ (ลากไฟล์ test เข้า Chat แล้วสั่ง) |
+| `/run-unit-tests` | รันเทสด้วย Jest พร้อมคำสั่ง Coverage |
 
 ### ขั้นตอนการสั่ง Cursor (Workflow)
 
-1.  **Step 1:** เปิดไฟล์คอมโพเนนต์ขึ้นมา
-2.  **Step 2:** กด `Cmd+K` (หรือ `Ctrl+K`) แล้วพิมพ์:
-    > *"Create a unit test for this component. Mock the API service and test the ionViewDidEnter logic. Ensure 100% coverage for the handleLogin function."*
-3.  **Step 3:** ใช้ **Cursor Tab** เพื่อเติมโค้ดในส่วนของ `expect` ที่ซ้ำซ้อน
+1.  **Step 1:** เปิดไฟล์คอมโพเนนต์ขึ้นมา (เช่น `LoginPage.vue`)
+2.  **Step 2:** เปิด Chat แล้วใช้ Command สำเร็จรูป เช่น:
+    -   พิมพ์ `/phase-4-login-page` เพื่อสร้าง Component + Test ทั้งชุด
+    -   พิมพ์ `/test-generation` เพื่อให้ Cursor สร้างเทสใหม่ตามมาตรฐานโปรเจกต์
+    -   พิมพ์ `/test-fixer` เพื่อแก้เทสที่พัง
+3.  **Step 3:** ใช้ `/coverage-report` เพื่อวิเคราะห์ Coverage หลังเขียนเทสเสร็จ
+4.  **Step 4:** รันเทสด้วย `/run-unit-tests` หรือ `npm run test:jest` ใน Terminal
 
-### ชุดคำสั่ง (Commands) สำหรับสั่ง Cursor
+> **Tip:** ถ้าต้องการ Prompt แบบ Free-form ก็สามารถใช้ Chat ปกติได้ — Cursor จะอ่าน Rule Files อัตโนมัติตาม glob ของไฟล์ที่เปิดอยู่
 
-#### A. คำสั่งสร้าง Boilerplate (สำหรับไฟล์ใหม่)
+### Cheat Sheet: คำสั่งลัดสำหรับ Workflow หลัก
 
-> *"Create a Jest unit test file for this component. Mock all external services and provide a basic mount setup with IonicVue. Include a describe block for basic rendering."*
-
-#### B. คำสั่งเน้นเก็บ Coverage (สำหรับ Logic ที่ซับซ้อน)
-
-> *"Analyze this component and write test cases to achieve 100% code coverage for the [ชื่อฟังก์ชัน] function. Include tests for both success and error paths (try/catch)."*
-
-#### C. คำสั่งเทส Ionic Lifecycle & Modal
-
-> *"Write a test case for ionViewDidEnter. Mock modalController.create to return a mock element and verify that present() is called. Also, test the data returned from onDidDismiss."*
-
-#### D. คำสั่งแก้ปัญหา Test พัง (Debug)
-
-> *"This test is failing with [วาง Error]. Analyze if it's a Shadow DOM issue, an unhandled promise, or a missing Ionic provider, and provide a fix."*
-
-### Cheat Sheet: เทคนิคเด็ดลดเวลาเขียน Test
-
-| สิ่งที่ต้องทำ | คำสั่งลัดใน Cursor | ประโยชน์ |
+| สิ่งที่ต้องทำ | วิธีใช้ใน Cursor | ประโยชน์ |
 | --- | --- | --- |
-| Mock API | `Mock the @/services/api module` | ไม่ต้องเสียเวลาเขียน `jest.mock` เองทีละอัน |
-| Generate Props | `Create test data factory for this component's props` | ได้ข้อมูล Mock สำหรับเทสที่หลากหลาย (Edge Cases) |
-| Refactor Test | `Refactor these tests to use beforeEach for common setup` | ทำให้โค้ดเทสสะอาดและอ่านง่ายขึ้น |
-| Test State | `Test how [variable] changes after clicking [button]` | เช็ค Flow การทำงานจริงของแอป |
-
-### ตัวอย่างคำสั่งที่ใช้บ่อยที่สุด (Copy & Paste)
-
-> *"Write a unit test for this Pinia store. Mock the API call. Test the [ActionName] action and verify that it calls the API once and updates the state correctly. Also, mock ionic toastController to ensure it shows a message on error."*
+| สร้างเทสใหม่ | `/test-generation` ใน Chat | ได้ Factory, Mock Reset, Happy Path + Edge Case ตามมาตรฐาน |
+| สร้างทั้ง Phase | `/phase-1-utils` ถึง `/phase-4-login-page` | สร้าง Source + Test ครบทุก Phase ตาม Blueprint |
+| แก้เทสพัง | `/test-fixer` ใน Chat | เช็ก Missing Plugin, Coverage ต่ำ, Mock Leak |
+| ดู Coverage | `/coverage-report` + ลากไฟล์ test เข้า Chat | ได้รายงานสาเหตุ Coverage ต่ำแบบมีโครงสร้าง |
+| รันเทส | `npm run test:jest` หรือ `npm run test:coverage` | รัน Jest ตรงไม่ผ่าน Vue CLI |
+| ล้างไฟล์ฝึก | `/clean-phases` | ลบไฟล์ Phase 1–4 เพื่อเริ่มฝึกใหม่ |
+| ดู Coverage ในเบราว์เซอร์ | `npm run test:coverage:open` | เปิด HTML Report แบบ Line-by-Line |
 
 ---
 
@@ -327,7 +235,7 @@ When writing tests:
 หลังจากที่ Cursor สร้างไฟล์ในแต่ละขั้นตอนเสร็จสิ้น ให้รันคำสั่งต่อไปนี้ใน Terminal ของโปรเจกต์เพื่อดูผลการทดสอบและรายงาน Code Coverage:
 
 ```bash
-npm run test:unit -- --coverage
+npm run test
 ```
 
 เมื่อคำสั่งรันเสร็จสิ้น Jest จะแสดงผลการทดสอบใน Terminal และสร้างโฟลเดอร์ `coverage/` ขึ้นมาในโปรเจกต์ของคุณ
