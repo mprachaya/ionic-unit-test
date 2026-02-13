@@ -51,13 +51,25 @@
 
 ---
 
+### `/phases/phase-5-lifecycle-vue`
+
+| | |
+| --- | --- |
+| **File** | `.cursor/commands/phases/phase-5-lifecycle-vue.md` |
+| **What it does** | สร้าง `src/views/LifecycleDemoPage.vue` (Options API) ที่สาธิต Vue และ Ionic lifecycle hooks (`ionViewWillEnter`, `ionViewDidEnter`, `ionViewWillLeave`, `ionViewDidLeave`, `mounted`) พร้อมปุ่ม Show Loading / Show Toast และสร้าง test file `tests/unit/views/LifecycleDemoPage.spec.js` สำหรับเทส lifecycle โดยเรียกผ่าน `wrapper.vm` และเพิ่ม route `/lifecycle-demo` |
+| **Prerequisites** | ตรวจสอบว่ามี `__mocks__/@ionic/vue.js` ก่อนรัน |
+| **When to use** | หลังจาก Phase 4 เมื่อต้องการฝึกเทส lifecycle hooks แบบมี component และ spec จริง |
+| **Example** | พิมพ์ `/phases/phase-5-lifecycle-vue` ใน Cursor Chat |
+
+---
+
 ### `/phases/clean-phases`
 
 | | |
 | --- | --- |
 | **File** | `.cursor/commands/phases/clean-phases.md` |
-| **What it does** | ลบไฟล์ทั้งหมดที่ถูกสร้างจาก Phase 1-4 (source files + test files + coverage folder) เพื่อให้ repo กลับไปสถานะเริ่มต้นพร้อมฝึกใหม่ คง `.gitkeep`, scaffolding, `__mocks__/`, และ `vue3-jest-fix.js` ไว้ |
-| **When to use** | เมื่อต้องการเริ่มฝึก Phase 1-4 ใหม่ตั้งแต่ต้น |
+| **What it does** | ลบไฟล์ทั้งหมดที่ถูกสร้างจาก Phase 1-5 (source files + test files + coverage folder) เพื่อให้ repo กลับไปสถานะเริ่มต้นพร้อมฝึกใหม่ คง `.gitkeep`, scaffolding, `__mocks__/`, และ `vue3-jest-fix.js` ไว้ |
+| **When to use** | เมื่อต้องการเริ่มฝึก Phase 1-5 ใหม่ตั้งแต่ต้น |
 | **Example** | พิมพ์ `/phases/clean-phases` ใน Cursor Chat |
 
 ---
